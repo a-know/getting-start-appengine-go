@@ -2,29 +2,44 @@ package hello
 
 import (
 	"fmt"
+	"html/template"
 	"net/http"
-
-	"appengine"
-	"appengine/user"
 )
 
 func init() {
-	http.HandleFunc("/", handler)
+	http.HandleFunc("/", root)
+	http.HandleFunc("/sign", sign)
 }
 
-func handler(res http.ResponseWriter, req *http.Request) {
-	// returns an appengine.Context value associated with the current request
-	context := appengine.NewContext(req)
-	u := user.Current(context)
-	if u == nil {
-		url, err := user.LoginURL(context, req.URL.String())
-		if err != nil {
-			http.Error(res, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		res.Header().Set("Location", url)
-		res.WriteHeader(http.StatusFound)
-		return
-	}
-	fmt.Fprintf(res, "こんにちは, %vさん！", u)
+func root(res http.ResponseWriter, req *http.Request) {
+	fmt.Fprint(res, guestbookForm)
 }
+
+const guestbookForm = `
+<html>
+  <body>
+    <form action="/sign" method="post">
+      <div><textarea name="content" rows="3" cols="60"></textarea></div>
+      <div><input type="submit" value="送信"></div>
+    </form>
+  </body>
+</html>
+`
+
+func sign(res http.ResponseWriter, req *http.Request) {
+	err := signTemplate.Execute(res, req.FormValue("content"))
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+var signTemplate = template.Must(template.New("contents").Parse(signTemplateHTML))
+
+const signTemplateHTML = `
+<html>
+  <body>
+    <p>送信内容:</p>
+    <pre>{{.}}</pre>
+  </body>
+</html>
+`
